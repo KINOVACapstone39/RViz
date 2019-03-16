@@ -31,7 +31,6 @@
 namespace kinova
 {
 
-
     class PickPlace
     {
     public:
@@ -98,9 +97,8 @@ namespace kinova
         void add_complex_obstacle();
         void clear_obstacle();
         void clear_workscene();
-        void add_attached_obstacle();
-        void add_target();
-
+        void add_attached_obstacle(int grasping, int flag);
+        void add_target(int j, int flag, double dim[3][2], double pp[3][3]);
         void define_cartesian_pose();
         geometry_msgs::PoseStamped generate_gripper_align_pose(geometry_msgs::PoseStamped targetpose_msg, double dist, double azimuth, double polar, double rot_gripper_z);
         void setup_constrain(geometry_msgs::Pose target_pose, bool orientation, bool position);

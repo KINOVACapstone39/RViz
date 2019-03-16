@@ -1,6 +1,12 @@
 #include <pick_place.h>
 #include <ros/console.h>
 #include <tf_conversions/tf_eigen.h>
+// basic file operations
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+#include <boost/lexical_cast.hpp>// for lexical_cast() 
 
 const double FINGER_MAX = 6400;
 
@@ -193,29 +199,47 @@ void PickPlace::build_workscene()
     co_.header.frame_id = "root";
     co_.header.stamp = ros::Time::now();
 
-    // remove table
+    // remove table and box
     co_.id = "table";
     co_.operation = moveit_msgs::CollisionObject::REMOVE;
     pub_co_.publish(co_);
+    co_.id = "box";
+    co_.operation = moveit_msgs::CollisionObject::REMOVE;
+    pub_co_.publish(co_);
 
-    // add table
+    // add table and box
+    co_.id = "table";
     co_.primitives.resize(1);
     co_.primitive_poses.resize(1);
     co_.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
     co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::BOX>::value);
     co_.operation = moveit_msgs::CollisionObject::ADD;
-
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = 0.50;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = 0.50;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = 0.102;
+    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = 2.0;
+    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = 2.0;
+    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = 0.01;
     co_.primitive_poses[0].position.x = 0;
-    co_.primitive_poses[0].position.y = 0;
-    co_.primitive_poses[0].position.z = -0.051;
+    co_.primitive_poses[0].position.y = 0.0;
+    co_.primitive_poses[0].position.z = -0.105;
     pub_co_.publish(co_);
+    co_.id = "box";
+    co_.primitives.resize(1);
+    co_.primitive_poses.resize(1);
+    co_.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
+    co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::BOX>::value);
+    co_.operation = moveit_msgs::CollisionObject::ADD;
+    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = 0.5;
+    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = 0.5;
+    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = 0.1;
+    co_.primitive_poses[0].position.x = 0;
+    co_.primitive_poses[0].position.y = 0.0;
+    co_.primitive_poses[0].position.z = -0.05;
+    pub_co_.publish(co_);
+
     planning_scene_msg_.world.collision_objects.push_back(co_);
     planning_scene_msg_.is_diff = true;
     pub_planning_scene_diff_.publish(planning_scene_msg_);
     ros::WallDuration(0.1).sleep();}
+
 
 void PickPlace::clear_obstacle()
 {
@@ -243,7 +267,6 @@ void PickPlace::clear_obstacle()
 void PickPlace::add_obstacle()
 {
     clear_obstacle();
-
     co_.id = "pole";
     co_.primitives.resize(1);
     co_.primitive_poses.resize(1);
@@ -303,13 +326,34 @@ void PickPlace::add_complex_obstacle()
     //      std::cin >> pause_;
 }
 
-void PickPlace::add_attached_obstacle()
-{
+void PickPlace::add_attached_obstacle(int grasping, int flag)
+{	//grasping decides whether the object is being grasped
+	//flag decides the type of object
     //once the object is know to be grasped
     //we remove obstacle from work scene
-    co_.id = "target_cylinder";
-    co_.operation = moveit_msgs::CollisionObject::REMOVE;
-    pub_co_.publish(co_);
+    if (grasping == 0){
+		if (flag ==0){
+			co_.id = "target_cylinder";
+			co_.operation = moveit_msgs::CollisionObject::REMOVE;
+			pub_co_.publish(co_);
+		}
+		else{
+			co_.id = "target_box";
+			co_.operation = moveit_msgs::CollisionObject::REMOVE;
+			pub_co_.publish(co_);
+		}
+	}else
+	{
+		if (flag ==0){
+			aco_.object.operation = moveit_msgs::CollisionObject::REMOVE;
+			pub_aco_.publish(co_);
+		}
+		else{
+			aco_.object.operation = moveit_msgs::CollisionObject::REMOVE;
+			pub_aco_.publish(co_);
+		}
+		
+	}
 
     //and then we declare it as an attached obstacle
     aco_.object.operation = moveit_msgs::CollisionObject::ADD;
@@ -324,25 +368,40 @@ void PickPlace::add_attached_obstacle()
     pub_aco_.publish(aco_);
 }
 
-void PickPlace::add_target()
+void PickPlace::add_target(int j, int flag, double dim[3][2], double pp[3][3])
 {
-    //remove target_cylinder
-    co_.id = "target_cylinder";
-    co_.operation = moveit_msgs::CollisionObject::REMOVE;
-    pub_co_.publish(co_);
-
-    //add target_cylinder
-    co_.primitives.resize(1);
-    co_.primitive_poses.resize(1);
-    co_.primitives[0].type = shape_msgs::SolidPrimitive::CYLINDER;
-    co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::CYLINDER>::value);
-    co_.operation = moveit_msgs::CollisionObject::ADD;
-
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT] = 0.3;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS] = 0.04;
-    co_.primitive_poses[0].position.x = -0.25;
-    co_.primitive_poses[0].position.y = -0.2;
-    co_.primitive_poses[0].position.z = 0.152;
+	if (flag == 0) {	//object it a cylinder
+		//remove target_cylinder
+		co_.id = "target_cylinder";
+		co_.operation = moveit_msgs::CollisionObject::REMOVE;
+		pub_co_.publish(co_);
+		//add target_cylinder
+		co_.primitives.resize(1);
+		co_.primitive_poses.resize(1);
+		co_.primitives[0].type = shape_msgs::SolidPrimitive::CYLINDER;
+		co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::CYLINDER>::value);
+		co_.operation = moveit_msgs::CollisionObject::ADD;
+		co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT] = dim[j][1];
+		co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS] = dim[j][0];
+	} else if (flag == 1){
+		//remove target_box
+		co_.id = "target_box";
+		co_.operation = moveit_msgs::CollisionObject::REMOVE;
+		pub_co_.publish(co_);
+		//add target_box
+		co_.primitives.resize(1);
+		co_.primitive_poses.resize(1);
+		co_.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
+		co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::BOX>::value);
+		co_.operation = moveit_msgs::CollisionObject::ADD;
+		co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = dim[j][0];
+		co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = dim[j][0];
+		co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = dim[j][1];
+		
+	} 
+    co_.primitive_poses[0].position.x = pp[j][0]-dim[j][0]/2;
+    co_.primitive_poses[0].position.y = pp[j][1]-dim[j][0]/2;
+    co_.primitive_poses[0].position.z = pp[j][2]+dim[j][1]/2;
     cp.pose.position.x = co_.primitive_poses[0].position.x;
     cp.pose.position.y = co_.primitive_poses[0].position.y;
     cp.pose.position.z = co_.primitive_poses[0].position.z;
@@ -411,12 +470,18 @@ void PickPlace::check_collision()
 void PickPlace::define_cartesian_pose()
 {
     tf::Quaternion q;
-    double param[6]; int count;
-    ROS_INFO_STREAM("Please define cartesian pose ...");
-    for (count=0;count<6;count++){
-		std::cin >> param[count];
-	}
+    int count = 0;
+    float temp;
+    float param[6];
+    std::string line;
+    std::ifstream pf;
     
+    pf.open("pos_data.txt");
+    std::getline(pf, line);
+    std::istringstream dcp(line);      //make a stream for the line itself
+    std::cout << line << "\n";
+    dcp >> param[0] >> param[1] >> param[2] >> param[3] >> param[4] >> param[5];
+	pf.close();
     // define start pose before grasp
     p.header.frame_id = "root";
     p.header.stamp = ros::Time::now();
@@ -605,68 +670,97 @@ void PickPlace::evaluate_plan(moveit::planning_interface::MoveGroup &group){
 
 bool PickPlace::my_pick()
 {
-	ROS_INFO_STREAM("Motion planning in cartesian space with a target ...");
-	clear_workscene();
-    build_workscene();
-	//add_complex_obstacle();
-	add_target();
-	
-	int count = 0; int NumPnts = 5;
-	ROS_INFO_STREAM("Running motion over chosen number of points...");
-	ROS_INFO_STREAM("How many points ?");
-    std::cin >> NumPnts;
-	if(!std::cin) { // or if(cin.fail()) 
-			// user didn't input a number
-			std::cin.clear(); // reset failbit
-			std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //skip bad input
-			// next, request user reinput
-			ROS_INFO_STREAM("Please enter an integer number");
-	}
-	
 	//open gripper once
+	float temp;	//temporary value of the variable
+	int i = 0;
+	int j = 0;
+	int n = 0;
+	int flag;		//flag for the type of the object
+	int grasp=0;		//grasp for the type of the object
+	int grasping=1;	//grasped object true or false?	
+	int NumObj;		//Number of objects defined
+	int graspObj=1;	//Grasp object defined
+	int NumProp = 6; //Number of properties hardset
     gripper_action(0.0); // full open
-	gripper_group_->move();
-	//add_attached_obstacle();
-	
-	//evaluate_plan(*group_);
-	while (count<NumPnts){
-	ros::WallDuration(0.1).sleep();
-	ros::WallDuration(0.1).sleep();
-	//evaluate_plan(*group_);
-	//ros::WallDuration(0.1).sleep();
-	//gripper_group_->setNamedTarget("Open");
-	ros::WallDuration(0.1).sleep();
-	ROS_INFO_STREAM("Moving ...");
-	group_->setPoseTarget(p);
-	evaluate_plan(*group_);
-	ROS_INFO_STREAM("Approaching grasp ...");
-	//group_->setPoseTarget(gp);
-	//evaluate_plan(*group_);
-	ROS_INFO_STREAM("Grasp? (G/O)");
-	std::cin >> pause_;
-	if (pause_ == "G" || pause_ == "g") {
-	ROS_INFO_STREAM("Grasping ...");
-		gripper_action(0.75*FINGER_MAX); // partially close
-		//add_attached_obstacle();
-		//gripper_group_->move();
-	}
-	else if (pause_ == "o" || pause_ == "O" || pause_ == "0") {
-		gripper_action(0.0); // full open
-		add_target();
-		//gripper_group_->move();
-	}
-	else {
-		ROS_INFO_STREAM("Incorrect input ...");
-	}
+	ROS_INFO_STREAM("Motion planning in cartesian space with a target ...");
+	std::ifstream ifs;
+	std::string line;
+	ifs.open("NumObj.txt");
+	std::getline(ifs,line);
+	std::istringstream in(line);
+	in >> NumObj;
+	ifs.clear();             //clear the buffer
+	ifs.seekg(0, ifs.beg);  //reset the reading position to beginning
+	ifs.close();
+    double dim[NumObj][2];	//dimensions of the objects
+    double pp[NumObj][3];	//points of the objects
+	while (pause_!="1"){
+		clear_workscene();
+		build_workscene();
+		ros::WallDuration(0.1).sleep();
+		ifs.open("grasp.txt");
+		std::getline(ifs,line);
+		std::istringstream in(line);
+		in >> grasp >> graspObj;
+		ifs.clear();             
+		ifs.seekg(0, ifs.beg);
+		ifs.close();
+		  
+		if (grasp==1){
+			ifs.open("rs_data.txt");
+			while (j<NumObj){
+				std::getline(ifs,line);
+				std::istringstream in(line);
+				std::cout << line << "\n";
+				in >> flag >> dim[j][0] >> dim[j][1] >> pp[j][0] >> pp[j][1] >> pp[j][2];
+				add_target(j,flag,dim,pp);	
+				j++;
+			}
+			j=0;
+			ifs.clear();             
+			ifs.seekg(0, ifs.beg);  
+			ifs.close();
+			ROS_INFO_STREAM("Open ...");
+			gripper_action(0.0); 			// full open
+			grasping = 0;
+		}
+		else if (grasp==0){
+			
+			ROS_INFO_STREAM("Grasp ...");
+			ifs.open("grasp_obj.txt");
+			std::getline(ifs,line);
+			std::istringstream in(line);
+			std::cout << line << "\n";
+			in >> flag >> dim[graspObj][0] >> dim[graspObj][1] >> pp[graspObj][0] >> pp[graspObj][1] >> pp[graspObj][2];
+			add_target(graspObj,flag,dim,pp);
+			j=0;
+			ifs.clear();             
+			ifs.seekg(0, ifs.beg);  
+			ifs.close();
+			
+			if (grasping == 0)
+			{	
+				gripper_action(0.75*FINGER_MAX); // partially close
+			}
+			add_attached_obstacle(grasping,flag);
+			grasping = 1;
+		}
+		else {
+			ROS_INFO_STREAM("Warning, incorrect grasp option declared ...");
+		}
+	    define_cartesian_pose();
+		ros::WallDuration(0.1).sleep();
+		ros::WallDuration(0.1).sleep();
+		ros::WallDuration(0.1).sleep();
+		group_->setPoseTarget(p);
+		evaluate_plan(*group_);
+		//define_cartesian_pose();
+		ROS_INFO_STREAM("Keep going?");
+		std::cin >> pause_;
 		
-	//ROS_INFO_STREAM("returning to start position  ...");
-	//ROS_INFO_STREAM("Returning home ...");
-	//evaluate_plan(*group_);
-    //group_->clearPathConstraints();
-	//group_->setNamedTarget("Home");
-	//evaluate_plan(*group_);
-	
-    define_cartesian_pose();
+		if (pause_=="1"){
+			break;
+		}
 	}
 	clear_workscene();
     ROS_INFO_STREAM("Press any key to quit ...");
