@@ -6,6 +6,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <cmath>
 #include <boost/lexical_cast.hpp>// for lexical_cast() 
 
 const double FINGER_MAX = 6400;
@@ -171,7 +172,7 @@ bool PickPlace::gripper_action(double finger_turn)
 }
 
 
-void PickPlace::clear_workscene()
+void PickPlace::clear_workscene(int grasping)
 {
     // remove table
     co_.id = "table";
@@ -182,16 +183,20 @@ void PickPlace::clear_workscene()
     co_.id = "target_cylinder";
     co_.operation = moveit_msgs::CollisionObject::REMOVE;
     pub_co_.publish(co_);
-
+    
+	
+	//Make as its own function
     //remove attached target
-    aco_.object.operation = moveit_msgs::CollisionObject::REMOVE;
-    pub_aco_.publish(aco_);
-
+    if (grasping == 0){
+		aco_.object.operation = moveit_msgs::CollisionObject::REMOVE;
+		pub_aco_.publish(aco_);
+	}
+	
     planning_scene_msg_.world.collision_objects.clear();
     planning_scene_msg_.is_diff = true;
     pub_planning_scene_diff_.publish(planning_scene_msg_);
 
-    clear_obstacle();
+   
 }
 
 void PickPlace::build_workscene()
@@ -199,34 +204,18 @@ void PickPlace::build_workscene()
     co_.header.frame_id = "root";
     co_.header.stamp = ros::Time::now();
 
-    // remove table and box
-    co_.id = "table";
-    co_.operation = moveit_msgs::CollisionObject::REMOVE;
-    pub_co_.publish(co_);
+    // remove table
     co_.id = "box";
     co_.operation = moveit_msgs::CollisionObject::REMOVE;
     pub_co_.publish(co_);
 
-    // add table and box
-    co_.id = "table";
+    // add table
     co_.primitives.resize(1);
     co_.primitive_poses.resize(1);
     co_.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
     co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::BOX>::value);
     co_.operation = moveit_msgs::CollisionObject::ADD;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = 2.0;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = 2.0;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = 0.01;
-    co_.primitive_poses[0].position.x = 0;
-    co_.primitive_poses[0].position.y = 0.0;
-    co_.primitive_poses[0].position.z = -0.105;
-    pub_co_.publish(co_);
-    co_.id = "box";
-    co_.primitives.resize(1);
-    co_.primitive_poses.resize(1);
-    co_.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
-    co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::BOX>::value);
-    co_.operation = moveit_msgs::CollisionObject::ADD;
+
     co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = 0.5;
     co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = 0.5;
     co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = 0.1;
@@ -235,173 +224,43 @@ void PickPlace::build_workscene()
     co_.primitive_poses[0].position.z = -0.05;
     pub_co_.publish(co_);
 
+    co_.id = "table";
+    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = 2.0;
+    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = 2.0;
+    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = 0.01;
+    co_.primitive_poses[0].position.x = 0;
+    co_.primitive_poses[0].position.y = 0.0;
+    co_.primitive_poses[0].position.z = -0.11;
+    pub_co_.publish(co_);
+
+   
+
     planning_scene_msg_.world.collision_objects.push_back(co_);
     planning_scene_msg_.is_diff = true;
     pub_planning_scene_diff_.publish(planning_scene_msg_);
     ros::WallDuration(0.1).sleep();}
 
-
-void PickPlace::clear_obstacle()
+void PickPlace::add_target(double b, double h, double x, double y, double z)
 {
-    co_.id = "pole";
-    co_.operation = moveit_msgs::CollisionObject::REMOVE;
-    pub_co_.publish(co_);
-    planning_scene_msg_.world.collision_objects.push_back(co_);
-
-    co_.id = "bot_obstacle";
-    co_.operation = moveit_msgs::CollisionObject::REMOVE;
-    pub_co_.publish(co_);
-    planning_scene_msg_.world.collision_objects.push_back(co_);
-
-    co_.id = "top_obstacle";
-    pub_co_.publish(co_);
-    planning_scene_msg_.world.collision_objects.push_back(co_);
-
-    planning_scene_msg_.is_diff = true;
-    pub_planning_scene_diff_.publish(planning_scene_msg_);
-    ros::WallDuration(0.1).sleep();
-    //      ROS_WARN_STREAM(__PRETTY_FUNCTION__ << ": LINE " << __LINE__ << ": remove pole ");
-    //      std::cin >> pause_;
-}
-
-void PickPlace::add_obstacle()
-{
-    clear_obstacle();
-    co_.id = "pole";
-    co_.primitives.resize(1);
-    co_.primitive_poses.resize(1);
-    co_.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
-    co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::BOX>::value);
+	//co_.header.frame_id = "root";
+    //co_.header.stamp = ros::Time::now();
+	
+	co_.id = "target_cylinder";
+	co_.operation = moveit_msgs::CollisionObject::REMOVE;
+	pub_co_.publish(co_);
+	co_.primitives.resize(1);
+	co_.primitive_poses.resize(1);
+	
+	co_.primitives[0].type = shape_msgs::SolidPrimitive::CYLINDER;
+    co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::CYLINDER>::value);
     co_.operation = moveit_msgs::CollisionObject::ADD;
-
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = 0.3;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = 0.1;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = 0.4;
-
-    co_.primitive_poses[0].position.x = 0.5;
-    co_.primitive_poses[0].position.y = -0.1;
-    co_.primitive_poses[0].position.z = 0.4/2.0;
-
-    pub_co_.publish(co_);
-    planning_scene_msg_.world.collision_objects.push_back(co_);
-
-    planning_scene_msg_.is_diff = true;
-    pub_planning_scene_diff_.publish(planning_scene_msg_);
-    ros::WallDuration(0.1).sleep();
-}
-
-void PickPlace::add_complex_obstacle()
-{
-    clear_obstacle();
-
-    // add obstacle between robot and object
-    co_.id = "bot_obstacle";
-    co_.primitives.resize(1);
-    co_.primitive_poses.resize(1);
-    co_.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
-    co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::BOX>::value);
-    co_.operation = moveit_msgs::CollisionObject::ADD;
-
-    double box_h = 0.2;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = 2.4;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = 0.1;
-    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = box_h;
-
-    co_.primitive_poses[0].position.x = 0;
-    co_.primitive_poses[0].position.y = 0.3;
-    co_.primitive_poses[0].position.z = box_h/2.0;
-    co_.primitive_poses[0].orientation.w = 1.0;
-    pub_co_.publish(co_);
-    planning_scene_msg_.world.collision_objects.push_back(co_);
-
-    co_.id = "top_obstacle";
-    co_.primitive_poses[0].position.z = box_h/2.0 + box_h + 0.4;
-    pub_co_.publish(co_);
-    planning_scene_msg_.world.collision_objects.push_back(co_);
-
-    planning_scene_msg_.is_diff = true;
-    pub_planning_scene_diff_.publish(planning_scene_msg_);
-    ros::WallDuration(0.1).sleep();
-    //      ROS_WARN_STREAM(__PRETTY_FUNCTION__ << ": LINE " << __LINE__ << ": ADD pole ");
-    //      std::cin >> pause_;
-}
-
-void PickPlace::add_attached_obstacle(int grasping, int flag)
-{	//grasping decides whether the object is being grasped
-	//flag decides the type of object
-    //once the object is know to be grasped
-    //we remove obstacle from work scene
-    if (grasping == 0){
-		if (flag ==0){
-			co_.id = "target_cylinder";
-			co_.operation = moveit_msgs::CollisionObject::REMOVE;
-			pub_co_.publish(co_);
-		}
-		else{
-			co_.id = "target_box";
-			co_.operation = moveit_msgs::CollisionObject::REMOVE;
-			pub_co_.publish(co_);
-		}
-	}else
-	{
-		if (flag ==0){
-			aco_.object.operation = moveit_msgs::CollisionObject::REMOVE;
-			pub_aco_.publish(co_);
-		}
-		else{
-			aco_.object.operation = moveit_msgs::CollisionObject::REMOVE;
-			pub_aco_.publish(co_);
-		}
-		
-	}
-
-    //and then we declare it as an attached obstacle
-    aco_.object.operation = moveit_msgs::CollisionObject::ADD;
-    aco_.link_name = robot_type_ + "_end_effector";
-    aco_.touch_links.push_back(robot_type_ + "_end_effector");
-    aco_.touch_links.push_back(robot_type_ + "_link_finger_1");
-    aco_.touch_links.push_back(robot_type_ + "_link_finger_2");
-    aco_.touch_links.push_back(robot_type_ + "_link_finger_3");
-    aco_.touch_links.push_back(robot_type_ + "_link_finger_tip_1");
-    aco_.touch_links.push_back(robot_type_ + "_link_finger_tip_2");
-    aco_.touch_links.push_back(robot_type_ + "_link_finger_tip_3");
-    pub_aco_.publish(aco_);
-}
-
-void PickPlace::add_target(int j, int flag, double dim[3][2], double pp[3][3])
-{
-	if (flag == 0) {	//object it a cylinder
-		//remove target_cylinder
-		co_.id = "target_cylinder";
-		co_.operation = moveit_msgs::CollisionObject::REMOVE;
-		pub_co_.publish(co_);
-		//add target_cylinder
-		co_.primitives.resize(1);
-		co_.primitive_poses.resize(1);
-		co_.primitives[0].type = shape_msgs::SolidPrimitive::CYLINDER;
-		co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::CYLINDER>::value);
-		co_.operation = moveit_msgs::CollisionObject::ADD;
-		co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT] = dim[j][1];
-		co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS] = dim[j][0];
-	} else if (flag == 1){
-		//remove target_box
-		co_.id = "target_box";
-		co_.operation = moveit_msgs::CollisionObject::REMOVE;
-		pub_co_.publish(co_);
-		//add target_box
-		co_.primitives.resize(1);
-		co_.primitive_poses.resize(1);
-		co_.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
-		co_.primitives[0].dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::BOX>::value);
-		co_.operation = moveit_msgs::CollisionObject::ADD;
-		co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = dim[j][0];
-		co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = dim[j][0];
-		co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = dim[j][1];
-		
-	} 
-    co_.primitive_poses[0].position.x = pp[j][0]-dim[j][0]/2;
-    co_.primitive_poses[0].position.y = pp[j][1]-dim[j][0]/2;
-    co_.primitive_poses[0].position.z = pp[j][2]+dim[j][1]/2;
+	
+	
+	co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT] = h;
+    co_.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS] = b/2.0;
+    co_.primitive_poses[0].position.x = x;
+    co_.primitive_poses[0].position.y = y;
+    co_.primitive_poses[0].position.z = z;
     cp.pose.position.x = co_.primitive_poses[0].position.x;
     cp.pose.position.y = co_.primitive_poses[0].position.y;
     cp.pose.position.z = co_.primitive_poses[0].position.z;
@@ -411,6 +270,37 @@ void PickPlace::add_target(int j, int flag, double dim[3][2], double pp[3][3])
     pub_planning_scene_diff_.publish(planning_scene_msg_);
     aco_.object = co_;
     ros::WallDuration(0.1).sleep();
+}
+
+void PickPlace::add_attached_obstacle(int grasping)
+{	//grasping decides whether the object is being grasped
+	//flag decides the type of object
+    //once the object is know to be grasped
+    //we remove obstacle from work scene
+    //if (grasping == true){
+	//ROS_INFO_STREAM("OW");
+	
+	co_.id = "target_cylinder";
+	co_.operation = moveit_msgs::CollisionObject::REMOVE;
+	pub_co_.publish(co_);
+	if (grasping == 1){
+		aco_.object.operation = moveit_msgs::CollisionObject::ADD;
+		//and then we declare it as an attached obstacle
+		aco_.link_name = robot_type_ + "_end_effector";
+		aco_.touch_links.push_back(robot_type_ + "_end_effector");
+		aco_.touch_links.push_back(robot_type_ + "_link_finger_1");
+		aco_.touch_links.push_back(robot_type_ + "_link_finger_2");
+		aco_.touch_links.push_back(robot_type_ + "_link_finger_3");
+		aco_.touch_links.push_back(robot_type_ + "_link_finger_tip_1");
+		aco_.touch_links.push_back(robot_type_ + "_link_finger_tip_2");
+		aco_.touch_links.push_back(robot_type_ + "_link_finger_tip_3");
+	}
+	else if (grasping == 0) {
+		aco_.object.operation = moveit_msgs::CollisionObject::REMOVE;
+	}
+	pub_aco_.publish(aco_);
+
+    
 }
 
 void PickPlace::check_collision()
@@ -476,18 +366,22 @@ void PickPlace::define_cartesian_pose()
     std::string line;
     std::ifstream pf;
     
-    pf.open("pos_data.txt");
+    pf.open("pos.txt");
     std::getline(pf, line);
     std::istringstream dcp(line);      //make a stream for the line itself
     std::cout << line << "\n";
     dcp >> param[0] >> param[1] >> param[2] >> param[3] >> param[4] >> param[5];
 	pf.close();
-    // define start pose before grasp
+	
+	
+    // define pose
     p.header.frame_id = "root";
     p.header.stamp = ros::Time::now();
     p.pose.position.x = param[0];
     p.pose.position.y = param[1];
     p.pose.position.z = param[2];
+    
+    // define direction of grasp
 
     q = EulerZYZ_to_Quaternion(param[3], param[4], param[5]);
     p.pose.orientation.x = q.x();
@@ -503,7 +397,46 @@ void PickPlace::define_cartesian_pose()
 
 }
 
+void PickPlace::define_joint_values()
+{
+    start_joint_.resize(joint_names_.size());
+    //    getInvK(start_pose_, start_joint_);
+    start_joint_[0] = 234.4 *M_PI/180.0;
+    start_joint_[1] = 256.0 *M_PI/180.0;
+    start_joint_[2] = 91.4 *M_PI/180.0;
+    start_joint_[3] = 163.4 *M_PI/180.0;
+    start_joint_[4] = 88.5 *M_PI/180.0;
+    start_joint_[5] = 151.0 *M_PI/180.0;
 
+
+    grasp_joint_.resize(joint_names_.size());
+    //    getInvK(grasp_pose, grasp_joint_);
+    grasp_joint_[0] = 144.0 *M_PI/180.0;
+    grasp_joint_[1] = 256.5 *M_PI/180.0;
+    grasp_joint_[2] = 91.3 *M_PI/180.0;
+    grasp_joint_[3] = 163.8 *M_PI/180.0;
+    grasp_joint_[4] = 88.5 *M_PI/180.0;
+    grasp_joint_[5] = 151.3 *M_PI/180.0;
+
+    pregrasp_joint_.resize(joint_names_.size());
+    //    getInvK(pregrasp_pose, pregrasp_joint_);
+    pregrasp_joint_[0] = 145.4 *M_PI/180.0;
+    pregrasp_joint_[1] = 253.7 *M_PI/180.0;
+    pregrasp_joint_[2] = 67.0 *M_PI/180.0;
+    pregrasp_joint_[3] = 151.0 *M_PI/180.0;
+    pregrasp_joint_[4] = 118.5 *M_PI/180.0;
+    pregrasp_joint_[5] = 141.7 *M_PI/180.0;
+
+//    postgrasp_joint_ = pregrasp_joint_;
+    postgrasp_joint_.resize(joint_names_.size());
+    //    getInvK(pregrasp_pose, postgrasp_joint_);
+    postgrasp_joint_[0] = 144 *M_PI/180.0;
+    postgrasp_joint_[1] = 249 *M_PI/180.0;
+    postgrasp_joint_[2] = 88 *M_PI/180.0;
+    postgrasp_joint_[3] = 165 *M_PI/180.0;
+    postgrasp_joint_[4] = 83 *M_PI/180.0;
+    postgrasp_joint_[5] = 151 *M_PI/180.0;
+}
 
 /**
  * @brief PickPlace::generate_gripper_align_pose
@@ -653,7 +586,8 @@ void PickPlace::evaluate_plan(moveit::planning_interface::MoveGroup &group){
         double plan_time; 
         plan_time = 7.5;
         ROS_INFO("Setting plan time to %f sec", plan_time);
-        group.setPlanningTime(plan_time); result_ = group.plan(my_plan);
+        group.setPlanningTime(plan_time); 
+        result_ = group.plan(my_plan);
         std::cout << "at attempt: " << count << std::endl;
         ros::WallDuration(0.1).sleep();
         // found a plan
@@ -668,101 +602,125 @@ void PickPlace::evaluate_plan(moveit::planning_interface::MoveGroup &group){
 }
 
 
-bool PickPlace::my_pick()
-{
-	//open gripper once
-	float temp;	//temporary value of the variable
-	int i = 0;
-	int j = 0;
-	int n = 0;
-	int flag;		//flag for the type of the object
-	int grasp=0;		//grasp for the type of the object
-	int grasping=1;	//grasped object true or false?	
-	int NumObj;		//Number of objects defined
-	int graspObj=1;	//Grasp object defined
-	int NumProp = 6; //Number of properties hardset
-    gripper_action(0.0); // full open
-	ROS_INFO_STREAM("Motion planning in cartesian space with a target ...");
+bool PickPlace::my_pick(){
+	
+
+	int tar;				//flag for type of target
+	int Wait = 0;
+	int EOP = 1;
+	int grasp= 1;		//grasp for the type of the object
+	int grasping= 1;	//grasped object true or false?	
+	int close = 1;
+	int Obj;				//Grasp Object
+	double d, xd,yd,zd;		//Displacement
+	double b, h;
+	double x,y,z;			
+	
 	std::ifstream ifs;
-	std::string line;
-	ifs.open("NumObj.txt");
-	std::getline(ifs,line);
-	std::istringstream in(line);
-	in >> NumObj;
-	ifs.clear();             //clear the buffer
-	ifs.seekg(0, ifs.beg);  //reset the reading position to beginning
-	ifs.close();
-    double dim[NumObj][2];	//dimensions of the objects
-    double pp[NumObj][3];	//points of the objects
-	while (pause_!="1"){
-		clear_workscene();
-		build_workscene();
-		ros::WallDuration(0.1).sleep();
-		ifs.open("grasp.txt");
-		std::getline(ifs,line);
-		std::istringstream in(line);
-		in >> grasp >> graspObj;
+	std::ofstream ofs;
+	std::string ln;
+	
+	
+	
+	///////////////////////////////////////////////////////////
+	//// build workscene and set initial state
+	///////////////////////////////////////////////////////////
+	
+	clear_workscene(grasping);
+    ros::WallDuration(1.0).sleep();
+    build_workscene();
+    ros::WallDuration(1.0).sleep();
+    
+    group_->clearPathConstraints();
+    group_->setNamedTarget("Home");
+    evaluate_plan(*group_);
+    
+    ros::WallDuration(1.0).sleep();
+    gripper_group_->setNamedTarget("Open");
+    gripper_group_->move();
+		
+
+    
+	////////////////////////////////////////////////////////////
+	//// continuous program stopped externally
+	////////////////////////////////////////////////////////////
+	while (EOP==1){
+		
+		ifs.open("comnd.txt");			  
+		std::getline(ifs,ln);
+		std::istringstream in2(ln);
+		in2 >> Wait >> EOP >> grasp;
 		ifs.clear();             
 		ifs.seekg(0, ifs.beg);
 		ifs.close();
-		  
-		if (grasp==1){
-			ifs.open("rs_data.txt");
-			while (j<NumObj){
-				std::getline(ifs,line);
-				std::istringstream in(line);
-				std::cout << line << "\n";
-				in >> flag >> dim[j][0] >> dim[j][1] >> pp[j][0] >> pp[j][1] >> pp[j][2];
-				add_target(j,flag,dim,pp);	
-				j++;
-			}
-			j=0;
-			ifs.clear();             
-			ifs.seekg(0, ifs.beg);  
-			ifs.close();
-			ROS_INFO_STREAM("Open ...");
-			gripper_action(0.0); 			// full open
-			grasping = 0;
-		}
-		else if (grasp==0){
-			
-			ROS_INFO_STREAM("Grasp ...");
-			ifs.open("grasp_obj.txt");
-			std::getline(ifs,line);
-			std::istringstream in(line);
-			std::cout << line << "\n";
-			in >> flag >> dim[graspObj][0] >> dim[graspObj][1] >> pp[graspObj][0] >> pp[graspObj][1] >> pp[graspObj][2];
-			add_target(graspObj,flag,dim,pp);
-			j=0;
-			ifs.clear();             
-			ifs.seekg(0, ifs.beg);  
-			ifs.close();
-			
-			if (grasping == 0)
-			{	
-				gripper_action(0.75*FINGER_MAX); // partially close
-			}
-			add_attached_obstacle(grasping,flag);
-			grasping = 1;
-		}
-		else {
-			ROS_INFO_STREAM("Warning, incorrect grasp option declared ...");
-		}
-	    define_cartesian_pose();
-		ros::WallDuration(0.1).sleep();
-		ros::WallDuration(0.1).sleep();
-		ros::WallDuration(0.1).sleep();
-		group_->setPoseTarget(p);
-		evaluate_plan(*group_);
-		//define_cartesian_pose();
-		ROS_INFO_STREAM("Keep going?");
-		std::cin >> pause_;
+		EOP = 1;
 		
-		if (pause_=="1"){
-			break;
+		ifs.open("obj.txt");
+		std::getline(ifs,ln);
+		std::istringstream in(ln);
+		in >> b >> h >> x >> y >> z;
+		add_target(b, h, x, y, z);
+		ifs.clear();             
+		ifs.seekg(0, ifs.beg);  
+		ifs.close();
+		
+		
+		if (Wait == 1){
+			
+			define_cartesian_pose();
+			ros::WallDuration(0.1).sleep();
+			ros::WallDuration(0.1).sleep();
+			ros::WallDuration(0.1).sleep();
+			group_->setPoseTarget(p);
+			evaluate_plan(*group_);		
+				
+			if (grasp==1){			
+			//// Initial cartesian pose //////
+				ROS_INFO_STREAM("Open ...");	
+				gripper_action(0.0); 			// full open
+				grasping = 1;				// grasp
+			}
+			else {				
+				//// Determine if grasp is proximal //
+				xd = currp.pose.position.x - cp.pose.position.x;
+				yd = currp.pose.position.y - cp.pose.position.y;
+				zd = currp.pose.position.z - cp.pose.position.y;
+				d = sqrt(xd*xd + yd*yd + zd*zd);
+				//if (d < 0.5){
+					if (grasping == 1){		//if not already grasping an object
+						ROS_INFO_STREAM("Grasping ... ");
+						gripper_action(0.75*FINGER_MAX); // partially close	
+					}
+					add_attached_obstacle(grasping);
+					grasping = 0;
+					//group_->clearPathConstraints();
+					//group_->setNamedTarget("Home");
+					define_cartesian_pose();
+					ros::WallDuration(0.1).sleep();
+					ros::WallDuration(0.1).sleep();
+					ros::WallDuration(0.1).sleep();
+					group_->setPoseTarget(p);
+					evaluate_plan(*group_);	
+				//	}
+				//else{
+				//	grasping = 0;
+					grasp = 0;
+				//	ROS_INFO_STREAM("Object not close enough");
+					ros::WallDuration(2.0).sleep();
+				}	
+		//	}
 		}
+		else
+		{
+			ROS_INFO_STREAM("Waiting for input ...");
+			ros::WallDuration(2.0).sleep();
+		}
+	clear_workscene(grasping);
+    ros::WallDuration(0.2).sleep();
+    build_workscene();
+    ros::WallDuration(0.2).sleep();
 	}
-	clear_workscene();
+	clear_workscene(grasping);
     ROS_INFO_STREAM("Press any key to quit ...");
     std::cin >> pause_;
     return true;
