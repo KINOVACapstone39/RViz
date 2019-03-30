@@ -175,14 +175,14 @@ bool PickPlace::gripper_action(double finger_turn)
 void PickPlace::clear_workscene(int grasping)
 {
     // remove table
-    co_.id = "table";
-    co_.operation = moveit_msgs::CollisionObject::REMOVE;
-    pub_co_.publish(co_);
+    //co_.id = "table";
+    //co_.operation = moveit_msgs::CollisionObject::REMOVE;
+    //pub_co_.publish(co_);
 
     // remove target
-    co_.id = "target_cylinder";
-    co_.operation = moveit_msgs::CollisionObject::REMOVE;
-    pub_co_.publish(co_);
+    //co_.id = "target_cylinder";
+    //co_.operation = moveit_msgs::CollisionObject::REMOVE;
+    //pub_co_.publish(co_);
     
 	
 	//Make as its own function
@@ -665,14 +665,7 @@ bool PickPlace::my_pick(){
 		ifs.close();
 		
 		
-		if (Wait == 1){
-			
-			define_cartesian_pose();
-			ros::WallDuration(0.1).sleep();
-			ros::WallDuration(0.1).sleep();
-			ros::WallDuration(0.1).sleep();
-			group_->setPoseTarget(p);
-			evaluate_plan(*group_);		
+		if (Wait == 1){	
 				
 			if (grasp==1){			
 			//// Initial cartesian pose //////
@@ -687,20 +680,14 @@ bool PickPlace::my_pick(){
 				zd = currp.pose.position.z - cp.pose.position.y;
 				d = sqrt(xd*xd + yd*yd + zd*zd);
 				//if (d < 0.5){
+					//group_->clearPathConstraints();
+					//group_->setNamedTarget("Home");
 					if (grasping == 1){		//if not already grasping an object
 						ROS_INFO_STREAM("Grasping ... ");
 						gripper_action(0.75*FINGER_MAX); // partially close	
 					}
 					add_attached_obstacle(grasping);
 					grasping = 0;
-					//group_->clearPathConstraints();
-					//group_->setNamedTarget("Home");
-					define_cartesian_pose();
-					ros::WallDuration(0.1).sleep();
-					ros::WallDuration(0.1).sleep();
-					ros::WallDuration(0.1).sleep();
-					group_->setPoseTarget(p);
-					evaluate_plan(*group_);	
 				//	}
 				//else{
 				//	grasping = 0;
@@ -708,6 +695,12 @@ bool PickPlace::my_pick(){
 				//	ROS_INFO_STREAM("Object not close enough");
 					ros::WallDuration(2.0).sleep();
 				}	
+				define_cartesian_pose();
+				ros::WallDuration(0.1).sleep();
+				ros::WallDuration(0.1).sleep();
+				ros::WallDuration(0.1).sleep();
+				group_->setPoseTarget(p);
+				evaluate_plan(*group_);	
 		//	}
 		}
 		else
@@ -716,9 +709,9 @@ bool PickPlace::my_pick(){
 			ros::WallDuration(2.0).sleep();
 		}
 	clear_workscene(grasping);
-    ros::WallDuration(0.2).sleep();
+    ros::WallDuration(0.1).sleep();
     build_workscene();
-    ros::WallDuration(0.2).sleep();
+    ros::WallDuration(0.1).sleep();
 	}
 	clear_workscene(grasping);
     ROS_INFO_STREAM("Press any key to quit ...");
